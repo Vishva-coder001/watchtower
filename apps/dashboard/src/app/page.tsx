@@ -498,11 +498,11 @@ export default function Home() {
       <section className="system-footer">
         <div>
           <span className="system-dot" />
-          Scraper Runner connected
+          Watchtower API
         </div>
 
         <div>
-          API · localhost:4000
+          API · /api/sites
         </div>
 
         <div>
