@@ -1,0 +1,69 @@
+name: Watchtower Scraper
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Generate Prisma Client
+        run: npx prisma generate
+
+      - name: Install scraper-runner dependencies
+        working-directory: services/scraper-runner
+        run: npm ci
+
+      - name: Start scraper runner
+        working-directory: services/scraper-runner
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          PORT: 4000
+        run: |
+          npm run dev > scraper.log 2>&1 &
+          echo $! > scraper.pid
+
+      - name: Wait for scraper runner
+        shell: bash
+        run: |
+          for i in {1..30}; do
+            if curl -fsS http://localhost:4000/health; then
+              echo "Scraper runner is healthy."
+              exit 0
+            fi
+
+            echo "Waiting for scraper runner..."
+            sleep 2
+          done
+
+          echo "Scraper runner failed to start."
+          cat services/scraper-runner/scraper.log || true
+          exit 1
+
+      - name: Run all monitored sites
+        run: |
+          response=$(curl -fsS \
+            -X POST \
+            http://localhost:4000/run-all)
+
+          echo "$response"
+
+      - name: Show scraper logs
+        if: always()
+        run: |
+          cat services/scraper-runner/scraper.log || true
