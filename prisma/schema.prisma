@@ -1,0 +1,43 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../services/scraper-runner/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum SnapshotStatus {
+  ok
+  failed
+}
+
+enum ChangeStatus {
+  initial
+  unchanged
+  changed
+}
+
+model Site {
+  id          String     @id @default(cuid())
+  name        String
+  collectorId String     @unique
+  url         String
+  createdAt   DateTime   @default(now())
+
+  snapshots   Snapshot[]
+}
+
+model Snapshot {
+  id           String         @id @default(cuid())
+  siteId       String
+  data         Json
+  fetchedAt    DateTime       @default(now())
+  status       SnapshotStatus
+  contentHash  String?
+  changeStatus ChangeStatus   @default(initial)
+
+  site         Site           @relation(fields: [siteId], references: [id], onDelete: Cascade)
+
+  @@index([siteId, fetchedAt])
+}
