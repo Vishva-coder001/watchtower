@@ -74,9 +74,11 @@ jobs:
           status=$(echo "$response" | sed -n 's/.*HTTP_STATUS://p')
 
           if [ "$status" != "200" ]; then
-            echo "ERROR: /sites returned HTTP $status"
+            echo "Failed to fetch monitored sites."
             exit 1
           fi
+
+          echo "====================================="
 
       - name: Run all monitored sites
         shell: bash
@@ -84,8 +86,8 @@ jobs:
           echo "========== RUNNING WATCHTOWER =========="
 
           response=$(curl -sS \
-            -w "\nHTTP_STATUS:%{http_code}" \
             -X POST \
+            -w "\nHTTP_STATUS:%{http_code}" \
             http://localhost:4000/run-all)
 
           echo "$response"
@@ -93,14 +95,23 @@ jobs:
           status=$(echo "$response" | sed -n 's/.*HTTP_STATUS://p')
 
           if [ "$status" != "200" ]; then
-            echo "ERROR: /run-all returned HTTP $status"
+            echo "run-all returned HTTP $status"
             exit 1
           fi
 
           echo "Watchtower scraper completed successfully."
+          echo "========================================"
 
       - name: Show scraper logs
         if: always()
         run: |
-          echo "========== SCRAPER LOGS =========="
+          echo "========== FINAL SCRAPER LOG =========="
           cat services/scraper-runner/scraper.log || true
+          echo "======================================="
+
+      - name: Stop scraper runner
+        if: always()
+        run: |
+          if [ -f services/scraper-runner/scraper.pid ]; then
+            kill "$(cat services/scraper-runner/scraper.pid)" || true
+          fi
