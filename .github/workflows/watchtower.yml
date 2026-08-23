@@ -11,6 +11,7 @@ jobs:
 
     env:
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      PORT: 4000
 
     steps:
       - name: Checkout repository
@@ -34,17 +35,17 @@ jobs:
 
       - name: Start scraper runner
         working-directory: services/scraper-runner
-        env:
-          PORT: 4000
         run: |
           npm run dev > scraper.log 2>&1 &
           echo $! > scraper.pid
+          echo "Scraper runner started with PID $(cat scraper.pid)"
 
       - name: Wait for scraper runner
         shell: bash
         run: |
           for i in {1..30}; do
             if curl -fsS http://localhost:4000/health; then
+              echo
               echo "Scraper runner is healthy."
               exit 0
             fi
@@ -53,29 +54,65 @@ jobs:
             sleep 2
           done
 
+          echo
           echo "Scraper runner failed to start."
+          echo "========== SCRAPER LOG =========="
           cat services/scraper-runner/scraper.log || true
+          echo "================================="
           exit 1
 
-      - name: Run all monitored sites
+      - name: Verify monitored sites
         run: |
-          set +e
+          echo "========== MONITORED SITES =========="
+          curl -fsS http://localhost:4000/sites | python -m json.tool
+          echo "====================================="
 
-          response=$(curl -sS \
-            -X POST \
-            -w "\nHTTP_STATUS:%{http_code}" \
-            http://localhost:4000/run-all)
+      - name: Run all monitored sites
+        shell: bash
+        run: |
+          echo "Running Watchtower scraper..."
 
-          echo "$response"
+          for attempt in 1 2 3; do
+            echo
+            echo "========== ATTEMPT $attempt / 3 =========="
 
-          status=$(echo "$response" | sed -n 's/.*HTTP_STATUS://p')
+            response=$(curl -sS \
+              -X POST \
+              -w "\nHTTP_STATUS:%{http_code}" \
+              http://localhost:4000/run-all)
 
-          if [ "$status" != "200" ]; then
+            echo "$response"
+
+            status=$(echo "$response" | sed -n 's/.*HTTP_STATUS://p')
+
+            if [ "$status" = "200" ]; then
+              echo
+              echo "Watchtower scrape completed successfully."
+              exit 0
+            fi
+
+            echo
             echo "run-all returned HTTP $status"
-            exit 1
-          fi
+
+            if [ "$attempt" -lt 3 ]; then
+              echo "Retrying in 5 seconds..."
+              sleep 5
+            fi
+          done
+
+          echo
+          echo "Watchtower scraper failed after 3 attempts."
+
+          echo
+          echo "========== SCRAPER LOG =========="
+          cat services/scraper-runner/scraper.log || true
+          echo "================================="
+
+          exit 1
 
       - name: Show scraper logs
         if: always()
         run: |
+          echo "========== FINAL SCRAPER LOG =========="
           cat services/scraper-runner/scraper.log || true
+          echo "======================================="
