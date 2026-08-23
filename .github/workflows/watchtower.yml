@@ -10,8 +10,9 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      DATABASE_URL: ${{ secrets.DATABASE_URL }}
-      BRIGHTDATA_API_KEY: ${{ secrets.BRIGHTDATA_API_KEY }}
+  DATABASE_URL: ${{ secrets.DATABASE_URL }}
+  BRIGHTDATA_API_KEY: ${{ secrets.BRIGHTDATA_API_KEY }}
+  BRIGHTDATA_UNLOCKER_ZONE: ${{ secrets.BRIGHTDATA_UNLOCKER_ZONE }}
 
     steps:
       - name: Checkout repository
@@ -24,12 +25,12 @@ jobs:
           cache: npm
 
       - name: Install Bright Data CLI
-        run: npm install -g @brightdata/cli
+  run: npm install -g @brightdata/cli
 
-      - name: Verify Bright Data CLI
-        run: |
-          brightdata --version
-          brightdata scrape https://example.com
+- name: Verify Bright Data CLI
+  run: |
+    brightdata --version
+    brightdata scrape https://example.com
 
       - name: Install root dependencies
         run: npm ci
