@@ -9,6 +9,9 @@ jobs:
   scrape:
     runs-on: ubuntu-latest
 
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -16,7 +19,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
 
       - name: Install root dependencies
@@ -32,7 +35,6 @@ jobs:
       - name: Start scraper runner
         working-directory: services/scraper-runner
         env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
           PORT: 4000
         run: |
           npm run dev > scraper.log 2>&1 &
